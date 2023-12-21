@@ -5,6 +5,7 @@ import datetime
 import re
 
 class ClientHandler(threading.Thread):
+    logovan = False
     def __init__(self, comm_socket, cl_address):
         self.socket = comm_socket
         self.address = cl_address
@@ -45,6 +46,11 @@ class ClientHandler(threading.Thread):
                         print(f"Status prijave korisnika {self.address}: {prijava_info}")
                         if prijava_info == "Korisnik se uspesno prijavio!":
                             logged = True
+                    elif int(opcija) == 4:
+                        print("[PREGLED SAKUPLJENIH SREDSTAVA]\n")
+                        pregled_info = str(self.pregled_skupljenih_sredstava())
+                        self.socket.send(pregled_info.encode(FORMAT))
+                        print(f"Korisniku {self.address} je poslato koliko je sakupljeno sredstava.")
                     else:
                         print(f"Korisnik {self.address} je uneo pogresnu opciju!")
                 if logged:
@@ -65,9 +71,15 @@ class ClientHandler(threading.Thread):
                         self.socket.send(uplata.encode(FORMAT))
                         print(f"Uplata korisnika {self.address}: {uplata}")
                     elif int(opcija) == 4:
-                        print("[Pregled ukupno skupljenih sredstava]\n")
+                        print("[PREGLED SAKUPLJENIH SREDSTAVA]\n")
+                        pregled_info = str(self.pregled_skupljenih_sredstava())
+                        self.socket.send(pregled_info.encode(FORMAT))
+                        print(f"Korisniku {self.address} je poslato koliko je sakupljeno sredstava.")
                     elif int(opcija) == 5:
-                        print("[Pregled transakcija]\n")
+                        print("[PREGLED TRANSAKCIJA]\n")
+                        pregled_info = str(self.pregled_transakcija())
+                        self.socket.send(pregled_info.encode(FORMAT))
+                        print(f"Korisniku {self.address} je poslato poslednih 10 transakcija.")
                     else:
                         print(f"Korisnik {self.address} je uneo pogresnu opciju!")
         except Exception as e:
@@ -77,22 +89,19 @@ class ClientHandler(threading.Thread):
     def uplata_humanitarne_pomoci(self, logged: bool):
         print(f"Korisnik {self.address} salje podatke...")
         iznos = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Iznos: {iznos}")
         ime = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Ime: {ime}")
         prezime = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Prezime: {prezime}")
         adresa = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Adresa: {adresa}")
         if logged == False:
             broj_platne_kartice = self.socket.recv(1024).decode(FORMAT)
         else:
-            broj_platne_kartice = "0"
-        #print(f"Br. kartice: {broj_platne_kartice}")
+            username = self.socket.recv(1024).decode(FORMAT)
+            if username_exists(username) == False:
+                informacije_o_uplati = "Neuspelo placanje. Korisnik je nepostojece korisnicko ime."
+                return informacije_o_uplati
+            broj_platne_kartice = find_card_with_username(username)
         cvv_broj = self.socket.recv(1024).decode(FORMAT)
-        #print(f"CVV: {cvv_broj}")
         vreme_uplate = datetime.datetime.now().strftime("%H:%M:%S %d-%m-%Y")
-        #print(f"Vreme uplate: {vreme_uplate}")
 
         try:
             if not credit_card_exists(broj_platne_kartice, cvv_broj):
@@ -100,8 +109,7 @@ class ClientHandler(threading.Thread):
             elif not valid_amount_of_money(int(iznos)):
                 informacije_o_uplati = "Neuspelo placanje. Korisnik je uneo manje od 200 dinara."
             else:
-                broj_platne_kartice = find_card_with_cvv(cvv_broj)
-                informacije_o_uplati = f"{ime} {prezime} {adresa} {broj_platne_kartice} {cvv_broj} {iznos} {vreme_uplate}\n"
+                informacije_o_uplati = f"{ime},{prezime},{adresa},{broj_platne_kartice},{cvv_broj},{iznos},{vreme_uplate}\n"
 
                 with open("spisak_uplata.txt", "a") as file:
                     file.write(informacije_o_uplati)
@@ -113,21 +121,13 @@ class ClientHandler(threading.Thread):
         global baza_kartica
         print(f"Korisnik {self.address} salje podatke...")
         username = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Username: {username}")
         password = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Password: {password}")
         ime = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Ime: {ime}")
         prezime = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Prezime: {prezime}")
         jmbg = self.socket.recv(1024).decode(FORMAT)
-        #print(f"JMBG: {jmbg}")
         broj_platne_kartice = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Broj platne kartice: {broj_platne_kartice}")
         cvv = self.socket.recv(1024).decode(FORMAT)
-        #print(f"Broj platne kartice: {cvv}")
         email = self.socket.recv(1024).decode(FORMAT)
-        #print(f"E-MAIL: {email}")
 
         if username_exists(username):
             informacija = "Neuspesna registracija. Osoba sa istim username-om postoji!"
@@ -159,20 +159,54 @@ class ClientHandler(threading.Thread):
         return informacija
 
     def pregled_skupljenih_sredstava(self):
-        pass
+        sum = 0
+        try:
+            with open("spisak_uplata.txt", 'r') as f:
+                for linija in f:
+                    podaci = linija.strip().split(',')
+                    sum += int(podaci[5])
+        except FileNotFoundError:
+            print(f"Fajl 'spisak_korisnika.txt' ne postoji. Kreiram novi fajl.")
+            with open("spisak_korisnika.txt", 'w'):
+                pass  # napravio prazan fajl
+        return sum
 
     def pregled_transakcija(self):
-        pass
+        lista_uplata = []
+        try:
+            with open("spisak_uplata.txt", 'r') as f:
+                for linija in f:
+                    podaci = linija.strip().split(',')
+                    lista_uplata.append(f"Ime: {podaci[0]}; Prezime: {podaci[1]}; Iznos: {podaci[5]}; Datum: {podaci[6]}")
+        except FileNotFoundError:
+            print(f"Fajl 'spisak_korisnika.txt' ne postoji. Kreiram novi fajl.")
+            with open("spisak_korisnika.txt", 'w'):
+                pass  # napravio prazan fajl
+        return '\n'.join(map(str, lista_uplata))
 
 MENI_POCETNI = ("1) Uplata humanitarne pomoći\n"
                 "2) Registracija\n"
-                "3) Prijava")
+                "3) Prijava\n"
+                "4) Pregled ukupno skupljenih sredstava")
 
 MENI_NAKON_PRIJAVE = ("1) Uplata humanitarne pomoći\n"
                 "4) Pregled ukupno skupljenih sredstava\n"
                 "5) Pregled transakcija\n"
                 "Dodatne opcije: !DISCONNECT, !ODJAVA")
 
+def find_card_with_username(username:str):
+    try:
+        with open("spisak_korisnika.txt", 'r') as f:
+            for linija in f:
+                podaci = linija.strip().split(',')
+                if podaci[0] == username:
+                    broj_kartice = podaci[5]
+                    return broj_kartice
+    except FileNotFoundError:
+        print(f"Fajl 'spisak_korisnika.txt' ne postoji. Kreiram novi fajl.")
+        with open("spisak_korisnika.txt", 'w'):
+            pass  # napravio prazan fajl
+    return ""
 def find_card_with_cvv(cvv:str):
     try:
         with open("baza_kartica.txt", 'r') as f:
@@ -201,12 +235,8 @@ def credit_card_exists(broj_kartice: str, cvv: str):
         with open("baza_kartica.txt", 'r') as f:
             for linija in f:
                 podaci = linija.strip().split(',')
-                if broj_kartice == "0":
-                    if podaci[1] == cvv:
-                        return True
-                else:
-                    if podaci[0] == broj_kartice and podaci[1] == cvv:
-                        return True
+                if podaci[0] == broj_kartice and podaci[1] == cvv:
+                    return True
     except FileNotFoundError:
         print(f"Fajl 'spisak_korisnika.txt' ne postoji. Kreiram novi fajl.")
         with open("spisak_korisnika.txt", 'w'):

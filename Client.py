@@ -36,6 +36,9 @@ class ListenThread(threading.Thread):
                     if logged_user == "False":
                         br_kartice = input("Unesite br. kartice: ")
                         self.socket.send(br_kartice.encode(FORMAT))
+                    else:
+                        username = input("Unesite username: ")
+                        self.socket.send(username.encode(FORMAT))
                     cvv = input("Unesite cvv: ")
                     self.socket.send(cvv.encode(FORMAT))
 
@@ -70,6 +73,13 @@ class ListenThread(threading.Thread):
 
                     informacije_o_prijavi = self.socket.recv(1024).decode(FORMAT)
                     print(f"Informacije o prijavi: {informacije_o_prijavi}")
+
+                elif int(opcija) == 4:
+                    info = self.socket.recv(1024).decode(FORMAT)
+                    print(f"Ukupno sakupljenih sredstava ima: {info}")
+                elif int(opcija) == 5:
+                    info = self.socket.recv(1024).decode(FORMAT)
+                    print(f"Poslednjih 10 transakcija:\n{info}")
                 else:
                     print("Uneli ste nepostojecu opciju!")
             except Exception as e:
