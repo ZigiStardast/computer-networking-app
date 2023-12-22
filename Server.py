@@ -13,7 +13,7 @@ class ClientHandler(threading.Thread):
         self.start()
 
     def run(self):
-        print(f"[KONEKCIJA] Korisnik {self.address} se povezao na server!")
+        print(f"[KONEKCIJA] Korisnik {self.address} se povezao na server!\n")
         connected = True
         logged = False
         try:
@@ -26,7 +26,7 @@ class ClientHandler(threading.Thread):
                         break
 
                     if int(opcija) == 1:
-                        print("[UPLATA HUMANITARNE POMOCI] Korisnik je izabrao opciju 1\n")
+                        print(f"[UPLATA HUMANITARNE POMOCI] Korisnik {self.address} je izabrao opciju 1\n")
                         logged_to_send = "False"
                         self.socket.send(logged_to_send.encode(FORMAT))
                         uplata = self.uplata_humanitarne_pomoci(logged)
