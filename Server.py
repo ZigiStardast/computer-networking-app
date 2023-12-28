@@ -1,4 +1,5 @@
 import logging
+import os
 import socket
 import threading
 import datetime
@@ -82,6 +83,8 @@ class ClientHandler(threading.Thread):
                         print(f"Korisniku {self.address} je poslato poslednih 10 transakcija.")
                     else:
                         print(f"Korisnik {self.address} je uneo pogresnu opciju!")
+        except ConnectionResetError:
+            print("Doslo je do neocekivanog prekida konekcije!")
         except Exception as e:
             print("GRESKA!")
             logging.exception(e)
@@ -162,6 +165,10 @@ class ClientHandler(threading.Thread):
         sum = 0
         try:
             with open("spisak_uplata.txt", 'r') as f:
+                if is_file_empty("spisak_uplata.txt"):
+                    if is_file_empty("spisak_uplata.txt"):
+                        return "Fajl je prazan"
+                    return sum
                 for linija in f:
                     podaci = linija.strip().split(',')
                     sum += int(podaci[5])
@@ -175,6 +182,8 @@ class ClientHandler(threading.Thread):
         lista_uplata = []
         try:
             with open("spisak_uplata.txt", 'r') as f:
+                if is_file_empty("spisak_uplata.txt"):
+                    return "Fajl je prazan"
                 for linija in f:
                     podaci = linija.strip().split(',')
                     lista_uplata.append(f"Ime: {podaci[0]}; Prezime: {podaci[1]}; Iznos: {podaci[5]}; Datum: {podaci[6]}")
@@ -194,6 +203,8 @@ MENI_NAKON_PRIJAVE = ("1) Uplata humanitarne pomoći\n"
                 "5) Pregled transakcija\n"
                 "Dodatne opcije: !DISCONNECT, !ODJAVA")
 
+def is_file_empty(file_path):
+    return os.stat(file_path).st_size == 0
 def find_card_with_username(username:str):
     try:
         with open("spisak_korisnika.txt", 'r') as f:

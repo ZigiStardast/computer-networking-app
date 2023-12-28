@@ -1,3 +1,0 @@
-
-taram,123,Tara,Milojkovic,1807002727832,1111-1111-1111-1111,187,tara@admin.com
-choda,456,Danilo,Milojkovic,2005004111111,6666-3333-4444-5555,789,choda@gmail.com
